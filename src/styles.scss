@@ -1,0 +1,32 @@
+
+// Global StockPro styles
+body { background-color: #f8f9fa; font-family: 'Segoe UI', system-ui, sans-serif; }
+.navbar { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.card { border-radius: 12px; }
+.card-header { border-radius: 12px 12px 0 0 !important; }
+.btn { border-radius: 8px; }
+.badge { border-radius: 6px; }
+.table > :not(caption) > * > * { padding: .75rem 1rem; }
+
+// Severity color helpers
+.severity-info     { border-left: 4px solid #0dcaf0; }
+.severity-warning  { border-left: 4px solid #ffc107; }
+.severity-critical { border-left: 4px solid #dc3545; }
+
+// Status badge helpers
+.status-draft              { background-color: #6c757d; }
+.status-pending            { background-color: #ffc107; color: #000; }
+.status-approved           { background-color: #198754; }
+.status-partially_received { background-color: #0dcaf0; }
+.status-received           { background-color: #0d6efd; }
+.status-cancelled          { background-color: #dc3545; }
+
+// Hover effect for cards
+.hover-lift { transition: transform .2s, box-shadow .2s; cursor: pointer; }
+.hover-lift:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12) !important; }
+
+// Loading spinner overlay
+.loading-overlay {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 200px; color: #6c757d;
+}
