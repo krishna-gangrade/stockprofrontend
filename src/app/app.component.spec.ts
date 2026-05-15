@@ -17,6 +17,7 @@ describe('AppComponent', () => {
   };
 
   const alertServiceMock = {
+    alertsChanged$: of(void 0),
     getUnreadCount: jasmine.createSpy('getUnreadCount').and.returnValue(of({ data: 3 }))
   };
 
