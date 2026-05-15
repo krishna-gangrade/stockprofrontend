@@ -1,0 +1,27 @@
+# Dependencies and package manager caches
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Angular / build output
+.angular/
+dist/
+coverage/
+.scannerwork/
+
+# Test and runtime artifacts
+*.log
+
+# OS / editor files
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+
