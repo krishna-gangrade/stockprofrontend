@@ -7,7 +7,7 @@
     "build": "ng build",
     "build:prod": "ng build --configuration production",
     "test": "ng test",
-    "test:coverage": "ng test --watch=false --code-coverage --browsers=ChromeHeadless",
+    "test:coverage": "ng test --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox",
     "lint": "ng lint",
     "sonar:scan": "powershell -NoProfile -Command \"$hostUrl = if ($env:SONAR_HOST_URL) { $env:SONAR_HOST_URL } else { 'http://localhost:9000' }; if (-not $env:SONAR_TOKEN) { throw 'SONAR_TOKEN is not set in this PowerShell session.' }; $scannerArgs = @('--define', 'project.settings=sonar-project.properties', '--define', \\\"sonar.host.url=$hostUrl\\\", '--define', \\\"sonar.token=$env:SONAR_TOKEN\\\"); & sonar-scanner @scannerArgs\"",
     "sonar:verify": "npm run build && npm run test:coverage && npm run sonar:scan"
