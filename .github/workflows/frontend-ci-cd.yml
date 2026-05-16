@@ -88,42 +88,9 @@ jobs:
             export GH_PAT="${{ secrets.GH_PAT }}"
             export REPO_URL="https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git"
             export APP_DIR="/opt/stockpro/frontend"
-
-            require_command() {
-              command -v "$1" >/dev/null 2>&1 || {
-                echo "Required command '$1' is not installed on the EC2 host."
-                exit 1
-              }
-            }
-
-            wait_for_http() {
-              local url="$1"
-              local timeout_seconds="${2:-180}"
-              local start_time
-              start_time="$(date +%s)"
-
-              until curl -fsS "$url" >/dev/null 2>&1; do
-                if [ "$(( $(date +%s) - start_time ))" -ge "$timeout_seconds" ]; then
-                  echo "Timed out waiting for $url"
-                  return 1
-                fi
-                sleep 5
-              done
-            }
-
-            dump_debug_state() {
-              docker ps || true
-              echo "----- stockpro-frontend logs -----"
-              docker logs --tail 200 stockpro-frontend || true
-              echo "----- stockpro-gateway logs -----"
-              docker logs --tail 100 stockpro-gateway || true
-            }
-
-            trap dump_debug_state ERR
-
-            require_command git
-            require_command docker
-            require_command curl
+            command -v git >/dev/null 2>&1
+            command -v docker >/dev/null 2>&1
+            command -v curl >/dev/null 2>&1
 
             mkdir -p "${APP_DIR}"
 
@@ -137,7 +104,20 @@ jobs:
             git reset --hard origin/main
             git clean -fd
 
-            wait_for_http "http://localhost:8082/actuator/health" 300
+            gateway_ready=0
+            for attempt in $(seq 1 60); do
+              if curl -fsS http://localhost:8082/actuator/health >/dev/null 2>&1; then
+                gateway_ready=1
+                break
+              fi
+              sleep 5
+            done
+            if [ "$gateway_ready" -ne 1 ]; then
+              echo "Gateway health check failed before frontend deployment."
+              docker logs --tail 100 stockpro-gateway || true
+              exit 1
+            fi
+
             docker network inspect stockpro-network >/dev/null 2>&1 || docker network create stockpro-network
             docker build --pull -t stockpro-frontend:latest .
             docker rm -f stockpro-frontend >/dev/null 2>&1 || true
@@ -148,5 +128,18 @@ jobs:
               -p 80:80 \
               stockpro-frontend:latest
 
-            wait_for_http "http://localhost" 180
-            docker exec stockpro-frontend wget -qO- http://stockpro-gateway:8082/actuator/health >/dev/null
+            frontend_ready=0
+            for attempt in $(seq 1 36); do
+              if curl -fsS http://localhost >/dev/null 2>&1; then
+                frontend_ready=1
+                break
+              fi
+              sleep 5
+            done
+            if [ "$frontend_ready" -ne 1 ]; then
+              echo "Frontend health check failed after deployment."
+              docker ps || true
+              docker logs --tail 200 stockpro-frontend || true
+              docker logs --tail 100 stockpro-gateway || true
+              exit 1
+            fi
