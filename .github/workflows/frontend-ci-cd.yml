@@ -7,6 +7,14 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   ci:
@@ -27,11 +35,16 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          install-dependencies: true
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build frontend
-        run: npm run build
+        run: npm run build:prod
 
       - name: Run tests with coverage
         run: npm run test:coverage
@@ -56,10 +69,46 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script_stop: true
           script: |
-            set -e
+            set -Eeuo pipefail
             export GH_PAT="${{ secrets.GH_PAT }}"
             export REPO_URL="https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git"
             export APP_DIR="/opt/stockpro/frontend"
+
+            require_command() {
+              command -v "$1" >/dev/null 2>&1 || {
+                echo "Required command '$1' is not installed on the EC2 host."
+                exit 1
+              }
+            }
+
+            wait_for_http() {
+              local url="$1"
+              local timeout_seconds="${2:-180}"
+              local start_time
+              start_time="$(date +%s)"
+
+              until curl -fsS "$url" >/dev/null 2>&1; do
+                if [ "$(( $(date +%s) - start_time ))" -ge "$timeout_seconds" ]; then
+                  echo "Timed out waiting for $url"
+                  return 1
+                fi
+                sleep 5
+              done
+            }
+
+            dump_debug_state() {
+              docker ps || true
+              echo "----- stockpro-frontend logs -----"
+              docker logs --tail 200 stockpro-frontend || true
+              echo "----- stockpro-gateway logs -----"
+              docker logs --tail 100 stockpro-gateway || true
+            }
+
+            trap dump_debug_state ERR
+
+            require_command git
+            require_command docker
+            require_command curl
 
             mkdir -p "${APP_DIR}"
 
@@ -73,8 +122,9 @@ jobs:
             git reset --hard origin/main
             git clean -fd
 
+            wait_for_http "http://localhost:8082/actuator/health" 300
             docker network inspect stockpro-network >/dev/null 2>&1 || docker network create stockpro-network
-            docker build -t stockpro-frontend:latest .
+            docker build --pull -t stockpro-frontend:latest .
             docker rm -f stockpro-frontend >/dev/null 2>&1 || true
             docker run -d \
               --name stockpro-frontend \
@@ -83,4 +133,5 @@ jobs:
               -p 80:80 \
               stockpro-frontend:latest
 
-            timeout 180 sh -c 'until wget -qO- http://localhost >/dev/null; do sleep 5; done'
+            wait_for_http "http://localhost" 180
+            docker exec stockpro-frontend wget -qO- http://stockpro-gateway:8082/actuator/health >/dev/null
