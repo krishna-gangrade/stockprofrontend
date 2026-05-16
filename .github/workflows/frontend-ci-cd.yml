@@ -1,0 +1,86 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ci:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    env:
+      CHROME_BIN: /usr/bin/google-chrome
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Run SonarQube analysis
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.SONAR_HOST_URL != '' && secrets.SONAR_TOKEN != ''
+        run: npx sonar-scanner --define project.settings=sonar-project.properties --define sonar.host.url="${SONAR_HOST_URL}" --define sonar.token="${SONAR_TOKEN}"
+
+  deploy:
+    name: Frontend Deploy
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            export GH_PAT="${{ secrets.GH_PAT }}"
+            export REPO_URL="https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git"
+            export APP_DIR="/opt/stockpro/frontend"
+
+            mkdir -p "${APP_DIR}"
+
+            if [ ! -d "${APP_DIR}/.git" ]; then
+              git clone "${REPO_URL}" "${APP_DIR}"
+            fi
+
+            cd "${APP_DIR}"
+            git remote set-url origin "${REPO_URL}"
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+
+            docker network inspect stockpro-network >/dev/null 2>&1 || docker network create stockpro-network
+            docker build -t stockpro-frontend:latest .
+            docker rm -f stockpro-frontend >/dev/null 2>&1 || true
+            docker run -d \
+              --name stockpro-frontend \
+              --restart unless-stopped \
+              --network stockpro-network \
+              -p 80:80 \
+              stockpro-frontend:latest
+
+            timeout 180 sh -c 'until wget -qO- http://localhost >/dev/null; do sleep 5; done'
