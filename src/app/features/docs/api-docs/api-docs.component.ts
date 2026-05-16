@@ -1,11 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, inject } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 
 interface ApiDocLink {
   name: string;
   swaggerUi: string;
   apiDocs: string;
+}
+
+interface DocsEndpointResponse {
+  gatewaySwaggerUi?: string;
+  services?: ApiDocLink[];
 }
 
 @Component({
@@ -28,6 +34,11 @@ interface ApiDocLink {
       <code>{{ gatewayBaseUrl }}</code>
     </div>
 
+    <div *ngIf="loadError" class="alert alert-warning border-0 shadow-sm">
+      <div class="fw-semibold mb-1">Using fallback API docs links</div>
+      <span>{{ loadError }}</span>
+    </div>
+
     <div class="row g-3">
       <div class="col-lg-4 col-md-6" *ngFor="let doc of docs">
         <div class="card border-0 shadow-sm h-100">
@@ -45,28 +56,50 @@ interface ApiDocLink {
   `
 })
 export class ApiDocsComponent {
+  private readonly http = inject(HttpClient);
+
   readonly gatewayBaseUrl = environment.apiUrl.startsWith('http')
     ? environment.apiUrl.replace(/\/api\/v1$/, '')
     : window.location.origin;
-  readonly gatewaySwaggerUi = `${this.gatewayBaseUrl}/swagger-ui.html`;
 
-  readonly docs: ApiDocLink[] = [
-    this.link('Auth Service', 'auth'),
-    this.link('Product Service', 'products'),
-    this.link('Warehouse Service', 'warehouses'),
-    this.link('Purchase Service', 'purchases'),
-    this.link('Payment Service', 'payments'),
-    this.link('Supplier Service', 'suppliers'),
-    this.link('Movement Service', 'movements'),
-    this.link('Alert Service', 'alerts'),
-    this.link('Report Service', 'reports')
-  ];
+  gatewaySwaggerUi = `${this.gatewayBaseUrl}/swagger-ui.html`;
+  docs: ApiDocLink[] = this.buildFallbackDocs();
+  loadError = '';
 
-  private link(name: string, slug: string): ApiDocLink {
+  constructor() {
+    this.http.get<DocsEndpointResponse>('/docs/endpoints').subscribe({
+      next: (response) => {
+        if (response.gatewaySwaggerUi) {
+          this.gatewaySwaggerUi = response.gatewaySwaggerUi;
+        }
+
+        if (response.services?.length) {
+          this.docs = response.services;
+        }
+      },
+      error: () => {
+        this.loadError = 'The gateway docs index did not respond, so these links were generated locally.';
+      }
+    });
+  }
+
+  private buildFallbackDocs(): ApiDocLink[] {
+    return [
+      this.fallbackLink('Auth Service', 'auth'),
+      this.fallbackLink('Product Service', 'products'),
+      this.fallbackLink('Warehouse Service', 'warehouses'),
+      this.fallbackLink('Purchase Service', 'purchases'),
+      this.fallbackLink('Payment Service', 'payments'),
+      this.fallbackLink('Supplier Service', 'suppliers'),
+      this.fallbackLink('Movement Service', 'movements'),
+      this.fallbackLink('Alert Service', 'alerts'),
+      this.fallbackLink('Report Service', 'reports')
+    ];
+  }
+
+  private fallbackLink(name: string, slug: string): ApiDocLink {
     return {
       name,
-      // Route service cards through the gateway's aggregated Swagger UI to avoid
-      // downstream springdoc redirects escaping the /docs/{service} proxy path.
       swaggerUi: `${this.gatewaySwaggerUi}?urls.primaryName=${encodeURIComponent(name)}`,
       apiDocs: `${this.gatewayBaseUrl}/docs/${slug}/v3/api-docs`
     };

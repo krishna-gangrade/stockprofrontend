@@ -95,6 +95,15 @@ import { environment } from '../../../../environments/environment';
 
             <!-- Google Login Container -->
             <div id="googleBtn" class="d-flex justify-content-center mb-4"></div>
+            <div *ngIf="googleAuthMessage"
+                 class="alert mb-4"
+                 [class.alert-warning]="!googleAuthAvailable"
+                 [class.alert-info]="googleAuthAvailable">
+              <i class="bi"
+                 [class.bi-shield-lock]="!googleAuthAvailable"
+                 [class.bi-info-circle]="googleAuthAvailable"></i>
+              <span class="ms-2">{{ googleAuthMessage }}</span>
+            </div>
 
             <div class="text-center">
               <a routerLink="/forgot-password" class="text-decoration-none small fw-semibold text-secondary">Forgot password?</a>
@@ -129,6 +138,8 @@ export class LoginComponent implements OnInit, AfterViewInit {
   errorMessage = '';
   showPassword = false;
   sessionExpired = false;
+  googleAuthMessage = '';
+  googleAuthAvailable = true;
 
   constructor(
     private readonly authService: AuthService,
@@ -154,14 +165,32 @@ export class LoginComponent implements OnInit, AfterViewInit {
   }
 
   private async initGoogleLogin(): Promise<void> {
+    if (!this.isGoogleSignInSupportedOrigin()) {
+      this.googleAuthAvailable = false;
+      this.googleAuthMessage = 'Google Sign-In requires HTTPS on your deployed domain. Open this app over https://stockpro.linkpc.net after SSL is enabled.';
+      return;
+    }
+
+    if (!environment.googleClientId?.trim()) {
+      this.googleAuthAvailable = false;
+      this.googleAuthMessage = 'Google Sign-In is not configured yet. Add the Google client ID in the frontend environment first.';
+      return;
+    }
+
     try {
       await this.thirdPartyScriptService.load('google-gsi');
     } catch {
+      this.googleAuthAvailable = false;
+      this.googleAuthMessage = 'Google Sign-In could not load from Google. Check your browser console, CSP, and network access.';
       return;
     }
 
     const googleApi = (globalThis as typeof globalThis & { google?: any }).google;
-    if (googleApi === undefined) return;
+    if (googleApi === undefined) {
+      this.googleAuthAvailable = false;
+      this.googleAuthMessage = 'Google Sign-In did not initialize. Verify your Google Cloud OAuth origin settings for this domain.';
+      return;
+    }
 
     googleApi.accounts.id.initialize({
       client_id: environment.googleClientId,
@@ -172,6 +201,9 @@ export class LoginComponent implements OnInit, AfterViewInit {
       document.getElementById('googleBtn'),
       { theme: 'outline', size: 'large', width: 340, text: 'signin_with', shape: 'pill' }
     );
+
+    this.googleAuthAvailable = true;
+    this.googleAuthMessage = '';
   }
 
   private handleGoogleLogin(response: any): void {
@@ -243,5 +275,10 @@ export class LoginComponent implements OnInit, AfterViewInit {
     }
 
     return fallbackMessage;
+  }
+
+  private isGoogleSignInSupportedOrigin(): boolean {
+    const { protocol, hostname } = window.location;
+    return protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1';
   }
 }
