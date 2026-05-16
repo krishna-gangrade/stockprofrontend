@@ -24,6 +24,7 @@ jobs:
       CHROME_BIN: /usr/bin/google-chrome
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
 
     steps:
       - name: Checkout
@@ -51,7 +52,21 @@ jobs:
 
       - name: Run SonarQube analysis
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.SONAR_HOST_URL != '' && env.SONAR_TOKEN != ''
-        run: npx sonar-scanner --define project.settings=sonar-project.properties --define sonar.host.url="${SONAR_HOST_URL}" --define sonar.token="${SONAR_TOKEN}"
+        continue-on-error: true
+        run: |
+          if [ -z "${SONAR_ORGANIZATION}" ]; then
+            echo "SONAR_ORGANIZATION is not set. Skipping frontend Sonar analysis."
+            exit 0
+          fi
+          if ! curl -fsS --max-time 15 "${SONAR_HOST_URL}/api/system/status" >/dev/null; then
+            echo "SonarQube is unreachable from GitHub Actions. Skipping analysis."
+            exit 0
+          fi
+          npx sonar-scanner \
+            --define project.settings=sonar-project.properties \
+            --define sonar.host.url="${SONAR_HOST_URL}" \
+            --define sonar.token="${SONAR_TOKEN}" \
+            --define sonar.organization="${SONAR_ORGANIZATION}"
 
   deploy:
     name: Frontend Deploy
