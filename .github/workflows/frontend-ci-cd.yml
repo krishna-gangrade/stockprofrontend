@@ -50,7 +50,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Run SonarQube analysis
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.SONAR_HOST_URL != '' && secrets.SONAR_TOKEN != ''
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.SONAR_HOST_URL != '' && env.SONAR_TOKEN != ''
         run: npx sonar-scanner --define project.settings=sonar-project.properties --define sonar.host.url="${SONAR_HOST_URL}" --define sonar.token="${SONAR_TOKEN}"
 
   deploy:
