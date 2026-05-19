@@ -101,7 +101,7 @@ export class ApiDocsComponent {
     const apiDocs = `${this.gatewayBaseUrl}/docs/${slug}/v3/api-docs`;
     return {
       name,
-      swaggerUi: `${this.gatewaySwaggerUi}?url=${encodeURIComponent(apiDocs)}`,
+      swaggerUi: `${this.gatewayBaseUrl}/webjars/swagger-ui/index.html?url=${encodeURIComponent(apiDocs)}`,
       apiDocs
     };
   }
