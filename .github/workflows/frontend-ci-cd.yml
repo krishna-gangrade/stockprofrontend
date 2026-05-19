@@ -130,6 +130,7 @@ jobs:
               --name stockpro-frontend \
               --restart unless-stopped \
               --network stockpro-network \
+              --add-host=host.docker.internal:host-gateway \
               -p 4200:80 \
               stockpro-frontend:latest
 
