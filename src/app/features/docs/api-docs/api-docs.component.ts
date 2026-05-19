@@ -99,9 +99,10 @@ export class ApiDocsComponent {
 
   private fallbackLink(name: string, slug: string): ApiDocLink {
     const apiDocs = `${this.gatewayBaseUrl}/docs/${slug}/v3/api-docs`;
+    const swaggerConfig = `${this.gatewayBaseUrl}/docs/${slug}/swagger-config`;
     return {
       name,
-      swaggerUi: `${this.gatewayBaseUrl}/webjars/swagger-ui/index.html?url=${encodeURIComponent(apiDocs)}`,
+      swaggerUi: `${this.gatewayBaseUrl}/webjars/swagger-ui/index.html?configUrl=${encodeURIComponent(swaggerConfig)}`,
       apiDocs
     };
   }
