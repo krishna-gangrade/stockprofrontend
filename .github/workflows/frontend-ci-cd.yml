@@ -166,12 +166,18 @@ jobs:
               if [ "$NGINX_UPDATED" -eq 1 ]; then
                 echo "Reloading nginx with frontend upstream on port 4200"
                 sudo nginx -t
-                if sudo systemctl is-active --quiet nginx; then
-                  sudo systemctl reload nginx
-                elif sudo service nginx status >/dev/null 2>&1; then
-                  sudo service nginx reload
-                else
-                  sudo nginx -s reload || true
+                reloaded=0
+                if sudo systemctl reload nginx >/dev/null 2>&1; then
+                  reloaded=1
+                elif sudo service nginx reload >/dev/null 2>&1; then
+                  reloaded=1
+                elif sudo nginx -s reload >/dev/null 2>&1; then
+                  reloaded=1
+                fi
+
+                if [ "$reloaded" -ne 1 ]; then
+                  echo "Unable to reload nginx automatically after updating config."
+                  exit 1
                 fi
               else
                 echo "No stockpro.linkpc.net nginx vhost found to update automatically."
