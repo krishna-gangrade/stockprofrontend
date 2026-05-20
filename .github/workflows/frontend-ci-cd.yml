@@ -131,6 +131,8 @@ jobs:
               --restart unless-stopped \
               --network stockpro-network \
               --add-host=host.docker.internal:host-gateway \
+              -e GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              -e API_URL="/api/v1" \
               -p 4200:80 \
               stockpro-frontend:latest
 
