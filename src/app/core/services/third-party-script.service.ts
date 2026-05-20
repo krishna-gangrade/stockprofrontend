@@ -28,7 +28,6 @@ export class ThirdPartyScriptService {
       script.src = source;
       script.async = true;
       script.defer = true;
-      script.crossOrigin = 'anonymous';
       script.referrerPolicy = 'strict-origin-when-cross-origin';
       script.dataset['sdk'] = name;
 
