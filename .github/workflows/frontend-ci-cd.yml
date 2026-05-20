@@ -167,20 +167,19 @@ jobs:
               done
 
               if [ "$NGINX_UPDATED" -eq 1 ]; then
-                echo "Reloading nginx with frontend upstream on port 4200"
-                sudo nginx -t
-                reloaded=0
-                if sudo systemctl reload nginx >/dev/null 2>&1; then
-                  reloaded=1
-                elif sudo service nginx reload >/dev/null 2>&1; then
-                  reloaded=1
-                elif sudo nginx -s reload >/dev/null 2>&1; then
-                  reloaded=1
-                fi
-
-                if [ "$reloaded" -ne 1 ]; then
-                  echo "Unable to reload nginx automatically after updating config."
-                  exit 1
+                echo "Attempting nginx reload with frontend upstream on port 4200"
+                if sudo nginx -t; then
+                  if sudo systemctl reload nginx >/dev/null 2>&1; then
+                    echo "nginx reloaded via systemctl"
+                  elif sudo service nginx reload >/dev/null 2>&1; then
+                    echo "nginx reloaded via service"
+                  elif sudo nginx -s reload >/dev/null 2>&1; then
+                    echo "nginx reloaded via nginx -s reload"
+                  else
+                    echo "nginx config was updated, but reload is not available on this host. Continuing because Caddy is the primary public proxy."
+                  fi
+                else
+                  echo "nginx config test failed after attempted update. Continuing because nginx is not the primary public proxy."
                 fi
               else
                 echo "No stockpro.linkpc.net nginx vhost found to update automatically."
