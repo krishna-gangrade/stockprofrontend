@@ -25,7 +25,7 @@ describe('ThirdPartyScriptService', () => {
     expect(script?.src).toContain('https://accounts.google.com/gsi/client');
     expect(script?.async).toBeTrue();
     expect(script?.defer).toBeTrue();
-    expect(script?.crossOrigin).toBe('anonymous');
+    expect(script?.crossOrigin).toBeNull();
     expect(script?.referrerPolicy).toBe('strict-origin-when-cross-origin');
 
     script?.onload?.(new Event('load'));
